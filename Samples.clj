@@ -441,7 +441,151 @@
 (reduce prime-accumulator [2] (range 3 1000))
 
 
+;; Testing Framework
+(use 'clojure.test)
+(is (= 4 (+ 2 2)) "Zwei und Zwei sollte Vier ergeben")
+(is (= 4 "4") "Vier ist Vier????")
 
+(deftest parse-hallo-test
+  (let [s "HALLO"]
+    (is (= (.ToUpper "hallo") s) "Should be HALLO")
+    (is (= (.ToUpper "Hallo") s) "Should be HALLO")
+    (is (= (.ToUpper "hAllo") s) "Should be HALLO")
+    (is (= (.ToUpper "haLlo") s) "Should be HALLO")
+    (is (= (.ToUpper "halLo") s) "Should be HALLO")
+    (is (= (.ToUpper "hallO") s) "Should be HALLO")
+    (is (= (.ToUpper "HAllo") s) "Should be HALLO")
+    (is (= (.ToUpper "halLO") s) "Should be HALLO")    
+    ))
+
+;; Ausführen von Tests
+(run-tests 'Samples)
+(run-tests 'user)
+
+; Mocking
+(defn generate-rand []
+  (take 5 (repeatedly #(rand-int 100))))
+
+(defn limit-to [limit]
+  (map #(if (> % limit) limit %) (generate-rand)))
+
+; funktioniert nicht, da Werte Zufallsmäßig erzeugt werden
+(comment
+  (deftest limit-to-test
+    (let [res '(50 50 33 35 50)]
+      (is (= (limit-to 50) res) "Sollte die richtige Sequence sein")))
+  )
+
+(deftest limit-to-test-mock-generate-rand
+  (with-redefs [generate-rand (fn [] (seq [100 98 33 35 67]))]
+    (let [res '(50 50 33 35 50)]    
+      (is (= (limit-to 50) res) "Sollte die richtige Sequence sein"))))
+
+(deftest limit-to-test-mock-rnd-int-1
+  (with-redefs [rand-int (fn [val] 100)]
+    (let [res '(50 50 50 50 50)]    
+      (is (= (limit-to 50) res) "Sollte die richtige Sequence sein"))))
+
+(deftest limit-to-test-mock-rnd-int-2
+  (with-redefs [rand-int (fn [val] 0)]
+    (let [res '(0 0 0 0 0)]    
+      (is (= (limit-to 50) res) "Sollte die richtige Sequence sein"))))
+
+(defn create-rand-int-simulator [& xs]    
+  (let [cnt (atom 0)]  
+    (fn [x] 
+      (let [val (nth xs (mod @cnt (count xs)))]      
+        (swap! cnt inc)
+        val))))
+
+(deftest limit-to-test-mock-rnd-int-3
+  (with-redefs [rand-int (create-rand-int-simulator 45 55)]
+    (let [res '(45 50 45 50 45)]    
+      (is (= (limit-to 50) res) "Sollte die richtige Sequence sein"))))
+
+;; Visual Studio Integration
+; Project Templates zeigen
+; File Templates zeigen
+; REPL Zeigen
+; Context Menü Solution Explorer
+; Context Menü File Explorer
+
+; defn macro
+(defn mul [x y] (* x y))                    ; Erzeugt eine Funktion
+(macroexpand '(defn mul [x y] (* x y)))     ; Expandiert das macro
+(def mul (clojure.core/fn ([x y] (* x y)))) ; der eigentliche Code der evaluiert wird
+
+; time macro
+(time (reduce + (range 10000000)))          ; stoppt die Zeit, gibt aber das Ergebnis des reduce zurück
+; user => "Elapsed time: 4078 msecs"
+; user => 49999995000000
+
+(macroexpand '(time (reduce + (range 10000000))))
+(let* [start (. clojure.lang.RT (StartStopwatch)) 
+       ret (reduce + (range 10000000))] 
+  (prn (str "Elapsed time: " (. clojure.lang.RT StopStopwatch) " msecs")) 
+  ret)
+
+; ->> thread last macro
+(reduce + (map #(* 10 %) (filter even? (range 10))))
+(->> (range 10)
+     (filter even? ,,,)
+     (map #(* 10 %) ,,,)
+     (reduce +) ,,,)
+
+(macroexpand-all '(->> (range 10)
+     (filter even? ,,,)
+     (map #(* 10 %) ,,,)
+     (reduce +) ,,,))
+
+; -> thread first macro
+(first (.Replace (.ToUpper "a b c d") "A" "X"))
+(-> "a b c d"          
+  .ToUpper ,,, 
+  (.Replace ,,, "A" "X") 
+  first ,,,)
+
+(macroexpand-all '(-> "a b c d"                                
+                    .ToUpper ,,, 
+                    (.Replace ,,, "A" "X") 
+                    first ,,,))
+
+
+;; Debug Makros
+; druckt einzelen Werte oder Anweisungen aus
+; die Klammern müßen jedesmal rausgefummelt werden
+(defmacro dbg [x] 
+  `(let [x# ~x] (println "dbg:" '~x "=" x#) x#))
+
+(+ (* 2 4) (* 5 6))
+(dbg (+ (* 2 4) (* 5 6)))
+(dbg (+ (dbg (* 2 4)) (dbg (* 5 6))))
+
+(let [a 3,
+      b 4]
+  (Math/Sqrt (+ (* a a) (* b b))))
+
+(let [a 3,
+      b 4]
+  (dbg (Math/Sqrt (+ (* a (dbg a)) (* (dbg b) b)))))
+
+(use 'clojure.walk)
+(macroexpand-all 
+  '(let [a 3,      
+         b 4]  
+     (dbg (Math/Sqrt (+ (* a (dbg a)) (* (dbg b) b))))))
+
+; druckt einzelne Anweisungen aus, aber keine Werte
+; einfacher zu entfernen
+(defmacro dbg-prn  
+  "Debugging form that prints out results"  
+  [& more]  
+  `(let [start# ~more]     
+     (print '~more "==>" start# "\n")     
+     start#))
+
+(+ (* 2 4) (* 5 6))
+(dbg-prn + (dbg-prn * 2 4) (dbg-prn * 5 6))
 
 
 
